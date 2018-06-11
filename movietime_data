@@ -1,0 +1,132 @@
+# -*- coding: utf-8 -*-
+import re
+import json
+import selenium
+from selenium import webdriver
+import time
+import sys
+import collections
+from pymongo import MongoClient
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+
+'''
+created on:2018/5/28
+author:cd
+target:获取时光网中参演人员和制片人员数据
+finished on：
+'''
+
+def get_urldata():
+    with open('/home/cd/桌面/sgw_data/2017.txt','a+') as f:
+        for i in f.readlines():
+            dict_0 = collections.OrderedDict()
+
+            i = i.replace('',' ')
+            i = i.strip().split(' ')
+            driver = webdriver.Chrome()
+            search = 'http://search.mtime.com/search/?q=' + i[0]
+            driver.get(search)
+            # 进入电影搜索界面
+
+            dict_0["_id"] = i[1]
+            dict_0["year"] = 2017
+            dict_0["movie_name"] = i[0]
+            # 字典储存电影的id，年份和电影名
+
+
+
+            page_source = driver.page_source
+            urls = re.findall('<a pan="M14_SearchIndex_MoreResult_MovieCover" class="pic __r_c_" target="_blank" href="(.*?)">',page_source)
+            for url in urls:
+                url = url + 'fullcredits.html'
+                driver.get(url)
+
+                movie_name  = driver.find_element_by_xpath('//*[@id="db_sechead"]/div[2]/div/h1/a').text
+                # 进入电影介绍主页
+
+
+                if movie_name == i[0]:
+                    # 判断该页面是不是电影所要电影的页面，是的话开始获取信息
+                    dict0 = {}
+                    page = driver.page_source
+                    all_actors = re.findall('<dd>.*?</dd>', page)
+                    time.sleep(1)
+                    for r in range(1, len(all_actors)):
+                        actor_names = re.findall('<h3><a href=".*?" target="_blank">(.*?)</a></h3>', all_actors[r])
+                        actor_url = re.findall('<h3><a href="(.*?)" target="_blank">.*?</a></h3>', all_actors[r])
+                        for actor_name in actor_names:
+                            dict0[actor_name] = actor_url[0]
+                    dict_0["演员"] = dict0
+
+                    # 获取演员的信息
+
+                    all_editors = re.findall('<div class="credits_list">(.*?)</div>', page)
+                    time.sleep(1)
+                    for r in range(len(all_editors)):
+                        dict1 = {}
+                        editor_lists = re.findall('<h4>(.*?)</h4>', all_editors[r])
+                        for editor_list in editor_lists:
+                            editor_type = editor_list.split(" ")[0]
+                        editor_name_0 = re.findall('<a target="_blank" href=".*?">(.*?)</a>', all_editors[r])
+                        editor_url_0 = re.findall('<a target="_blank" href="(.*?)">.*?</a>', all_editors[r])
+                        editor_name_1 = re.findall('<a href=".*?" target="_blank">(.*?)</a>', all_editors[r])
+                        editor_url_1 = re.findall('<a href="(.*?)" target="_blank">.*?</a>', all_editors[r])
+                        if len(editor_name_0) > 0:
+                            for r in range(len(editor_name_0)):
+                                editor_name = editor_name_0[r]
+                                editor_url = editor_url_0[r]
+                                dict1[editor_name] = editor_url
+                        else:
+                            for r in range(len(editor_name_1)):
+                                editor_name = editor_name_1[r]
+                                editor_url = editor_url_1[r]
+                                dict1[editor_name] = editor_url
+                        # editor_type =  editor_type + '：' + json.dumps(dict1, ensure_ascii=False, encoding='UTF-8')
+                        dict_0[editor_type] = dict1
+
+
+
+                    # 获取工作人员的信息
+
+
+
+
+                    datas = dict_0
+
+
+                    try:
+                        conn = MongoClient('',27017)
+                        db = conn.admin
+                        db.authenticate('','')
+                        db.conn['team_behind_sc']
+                        table = db['Filmmaker_page']
+                        table.insert(datas)
+
+
+                    except:
+                        print False
+                        pass
+
+                    driver.close()
+
+
+
+
+
+
+                    break
+                else:
+                    pass
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    get_urldata()
+
